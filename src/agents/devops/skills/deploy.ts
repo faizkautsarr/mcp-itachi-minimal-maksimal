@@ -2,7 +2,7 @@ export const label = "DevOps — deploy";
 export const role = "DevOps Engineer handling deployment and infrastructure";
 
 export function buildStep(seedWord: string): string {
-  return `Step: [${label}] — Starting with the word "${seedWord}", generate EXACTLY 10 meaningful words about deployment and infrastructure. The sentence must start with "${seedWord}".`;
+  return `Step: [${label}] — Mulai dengan kata "${seedWord}", buat TEPAT 10 kata dalam Bahasa Indonesia yang bermakna tentang deployment, CI/CD pipeline, dan infrastruktur server. Kalimat harus dimulai dengan "${seedWord}".`;
 }
 
 export function deploy(input: string): string {

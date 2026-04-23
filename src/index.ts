@@ -203,43 +203,43 @@ function createMcpServer(): Server {
         `${i + 1}. ${fn("the last word from the previous step" + (i === 0 ? ` (first step: use the first word from input "${input}")` : ""))}`
       ).join("\n");
 
-      text = `You are orchestrating a 9-agent software development pipeline using last-word chaining.
+      text = `Kamu adalah orkestrator pipeline pengembangan software dengan 9 agent menggunakan teknik last-word chaining dalam Bahasa Indonesia.
 
 Input: "${input}"
 
-Rules:
-- Each agent generates EXACTLY 10 words relevant to their role
-- The LAST WORD of each agent's output becomes the FIRST WORD (seed) of the next agent
-- Step 1 starts with the first word from the input
+Aturan:
+- Setiap agent menghasilkan TEPAT 10 kata dalam Bahasa Indonesia yang relevan dengan perannya di dunia software engineering
+- KATA TERAKHIR output setiap agent menjadi KATA PERTAMA (seed) agent berikutnya
+- Step 1 dimulai dari kata pertama input
 
-Steps (each defined by its agent skill):
+Steps (masing-masing sesuai instruksi skill agent):
 ${steps}
 
-Execute all 9 steps IN ORDER. Track the last word of each output to seed the next step.
+Jalankan semua 9 step BERURUTAN. Lacak kata terakhir setiap output untuk seed step berikutnya.
 
-Format output EXACTLY like this:
-=== Pipeline Started ===
+Format output PERSIS seperti ini:
+=== Pipeline Dimulai ===
 Input: "${input}"
 
-[PM — create-spec] <10 words>
-[PM — write-ticket] <10 words>
-[Architect — review] <10 words>
-[Designer — create-design] <10 words>
-[BE — implement-api] <10 words>
-[FE — implement] <10 words>
-[FE — validate] <10 words>
-[QA — write-tests] <10 words>
-[DevOps — deploy] <10 words>
+[PM — create-spec] <10 kata>
+[PM — write-ticket] <10 kata>
+[Architect — review] <10 kata>
+[Designer — create-design] <10 kata>
+[BE — implement-api] <10 kata>
+[FE — implement] <10 kata>
+[FE — validate] <10 kata>
+[QA — write-tests] <10 kata>
+[DevOps — deploy] <10 kata>
 
-=== Pipeline Complete ===
+=== Pipeline Selesai ===
 
-Then call the \`run_pipeline\` tool with that entire block as \`input\`. After the tool responds, show the exact download URL.`;
+Kemudian panggil tool \`run_pipeline\` dengan seluruh blok di atas sebagai \`input\`. Setelah tool merespons, tampilkan URL-nya.`;
     } else {
       const agent = agentRoles[tool];
       const stepInstruction = agent?.buildStep(input) ?? `Generate 10 words starting with "${input}"`;
       text = `${stepInstruction}
 
-Return only the 10 words as a single line. Then call the \`${tool}\` tool with those 10 words as the \`input\` parameter. After the tool responds, show the exact download URL.`;
+Kembalikan hanya 10 kata dalam satu baris. Kemudian panggil tool \`${tool}\` dengan 10 kata tersebut sebagai parameter \`input\`. Setelah tool merespons, tampilkan URL-nya.`;
     }
 
     return {
