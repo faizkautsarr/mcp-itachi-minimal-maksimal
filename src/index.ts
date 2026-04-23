@@ -172,7 +172,8 @@ function createMcpServer(): Server {
     const { name, arguments: args } = request.params;
     const tool = promptToTool[name];
     if (!tool) throw new Error(`Unknown prompt: ${name}`);
-    const input = (args as Record<string, string>)?.input ?? "";
+    const rawArgs = args as Record<string, string> | undefined;
+    const input = rawArgs ? Object.values(rawArgs).join(" ").trim() : "";
     return {
       description: prompts.find(p => p.name === name)?.description,
       messages: [{
