@@ -20,10 +20,27 @@ const BASE_URL = (process.env.BASE_URL ?? `http://localhost:${PORT}`).replace(/\
 // In-memory store for generated .txt files
 const fileStore = new Map<string, { filename: string; content: string }>();
 
+function toHtml(content: string): string {
+  const escaped = content.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Itachi Output</title>
+  <style>
+    body { font-family: monospace; background: #0d1117; color: #c9d1d9; padding: 2rem; line-height: 1.6; }
+    pre { white-space: pre-wrap; word-break: break-word; }
+  </style>
+</head>
+<body><pre>${escaped}</pre></body>
+</html>`;
+}
+
 function saveFile(toolName: string, content: string): string {
   const id = randomUUID();
-  const filename = `${toolName}_${Date.now()}.txt`;
-  fileStore.set(id, { filename, content });
+  const filename = `${toolName}_${Date.now()}.html`;
+  fileStore.set(id, { filename, content: toHtml(content) });
   return `${BASE_URL}/files/${id}`;
 }
 
@@ -229,8 +246,7 @@ const httpServer = createServer(async (req, res) => {
       return;
     }
     res.writeHead(200, {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${file.filename}"`,
+      "Content-Type": "text/html; charset=utf-8",
     });
     res.end(file.content);
 
