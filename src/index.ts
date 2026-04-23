@@ -15,7 +15,7 @@ import { writeTests } from "./agents/qa/skills/write-tests.js";
 import { deploy } from "./agents/devops/skills/deploy.js";
 
 const PORT = process.env.PORT ?? 3000;
-const BASE_URL = process.env.BASE_URL ?? `http://localhost:${PORT}`;
+const BASE_URL = (process.env.BASE_URL ?? `http://localhost:${PORT}`).replace(/\/$/, "");
 
 // In-memory store for generated .txt files
 const fileStore = new Map<string, { filename: string; content: string }>();
@@ -101,6 +101,9 @@ function createMcpServer(): Server {
     switch (name) {
       case "run_pipeline":
         content = [
+          `=== Pipeline Started ===`,
+          `Input: "${input}"`,
+          ``,
           createSpec(input),
           writeTicket(input),
           reviewArchitecture(input),
@@ -110,6 +113,8 @@ function createMcpServer(): Server {
           validate(input),
           writeTests(input),
           deploy(input),
+          ``,
+          `=== Pipeline Complete ===`,
         ].join("\n");
         break;
       case "pm_create_spec":          content = createSpec(input); break;
