@@ -1,5 +1,6 @@
-import { createServer } from "http";
+import { createServer, IncomingMessage } from "http";
 import { randomUUID } from "crypto";
+import { runPipeline } from "./autonomous/orchestrator.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, ListPromptsRequestSchema, GetPromptRequestSchema } from "@modelcontextprotocol/sdk/types.js";
@@ -264,6 +265,15 @@ Kembalikan hanya 10 kata dalam satu baris. Kemudian panggil tool \`${tool}\` den
   return server;
 }
 
+function readBody(req: IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => resolve(body));
+    req.on("error", reject);
+  });
+}
+
 const transports = new Map<string, SSEServerTransport>();
 
 const httpServer = createServer(async (req, res) => {
@@ -308,6 +318,41 @@ const httpServer = createServer(async (req, res) => {
       "Content-Type": "text/html; charset=utf-8",
     });
     res.end(file.content);
+
+  } else if (req.method === "POST" && url.pathname === "/itachi/api/run-pipeline") {
+    const body = await readBody(req);
+    let input: string;
+    try {
+      input = (JSON.parse(body) as { input: string }).input;
+      if (!input) throw new Error();
+    } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Body harus berupa { input: string }" }));
+      return;
+    }
+
+    try {
+      const results = await runPipeline(input);
+      const summary = results.map(r => {
+        const url = saveFile(r.label.replace(/\s/g, "_"), `[${r.label}] ${r.output}`);
+        return { agent: r.label, output: r.output, url };
+      });
+
+      const finalContent = [
+        `=== Pipeline Selesai ===`,
+        `Input: "${input}"`,
+        ``,
+        ...summary.map(s => `[${s.agent}] ${s.output} | ${s.url}`),
+      ].join("\n");
+
+      const finalUrl = saveFile("run_pipeline", finalContent);
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ url: finalUrl, agents: summary }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: String(err) }));
+    }
 
   } else if (req.method === "GET" && url.pathname === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
