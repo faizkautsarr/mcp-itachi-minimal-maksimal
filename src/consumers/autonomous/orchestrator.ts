@@ -1,13 +1,13 @@
 import { generateWords } from "./llm.js";
-import { buildStep as pmSpecStep } from "../agents/pm/skills/create-spec.js";
-import { buildStep as pmTicketStep } from "../agents/pm/skills/write-ticket.js";
-import { buildStep as architectStep } from "../agents/architect/skills/review-architecture.js";
-import { buildStep as designerStep } from "../agents/designer/skills/create-design.js";
-import { buildStep as beStep } from "../agents/be/skills/implement-api.js";
-import { buildStep as feImplStep } from "../agents/fe/skills/implement.js";
-import { buildStep as feValidateStep } from "../agents/fe/skills/validate.js";
-import { buildStep as qaStep } from "../agents/qa/skills/write-tests.js";
-import { buildStep as devopsStep } from "../agents/devops/skills/deploy.js";
+import { buildStep as pmSpecStep } from "../../agents/pm/skills/create-spec.js";
+import { buildStep as pmTicketStep } from "../../agents/pm/skills/write-ticket.js";
+import { buildStep as architectStep } from "../../agents/architect/skills/review-architecture.js";
+import { buildStep as designerStep } from "../../agents/designer/skills/create-design.js";
+import { buildStep as beStep } from "../../agents/be/skills/implement-api.js";
+import { buildStep as feImplStep } from "../../agents/fe/skills/implement.js";
+import { buildStep as feValidateStep } from "../../agents/fe/skills/validate.js";
+import { buildStep as qaStep } from "../../agents/qa/skills/write-tests.js";
+import { buildStep as devopsStep } from "../../agents/devops/skills/deploy.js";
 
 const agents = [
   { label: "PM — create-spec",         buildStep: pmSpecStep },

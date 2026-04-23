@@ -1,12 +1,12 @@
-import { runPipeline } from "./orchestrator.js";
-import { sendTelegram } from "./telegram.js";
-import { saveFile } from "../files.js";
+import { runPipeline } from "../../orchestrator.js";
+import { saveFile } from "../../../../files.js";
+import { sendTelegram } from "../../notifiers/telegram.js";
 
 function lastWord(text: string): string {
   return text.trim().split(/\s+/).pop() ?? text;
 }
 
-export interface JiraWebhookPayload {
+interface JiraPayload {
   issue?: {
     key?: string;
     fields?: {
@@ -19,16 +19,14 @@ export interface JiraWebhookPayload {
   };
 }
 
-function extractDescription(payload: JiraWebhookPayload): string | null {
-  const items = payload.changelog?.items ?? [];
-  const descChange = items.find(i => i.field === "description");
+function extractDescription(payload: JiraPayload): string | null {
+  const descChange = payload.changelog?.items?.find(i => i.field === "description");
   if (descChange) return descChange.toString;
 
   const raw = payload.issue?.fields?.description;
   if (!raw) return null;
   if (typeof raw === "string") return raw;
 
-  // Jira doc format (Atlassian Document Format)
   return raw.content
     ?.flatMap(b => b.content ?? [])
     .map(n => n.text ?? "")
@@ -36,28 +34,20 @@ function extractDescription(payload: JiraWebhookPayload): string | null {
 }
 
 export async function handleJiraWebhook(body: string): Promise<{ status: string }> {
-  const payload = JSON.parse(body) as JiraWebhookPayload;
+  const payload = JSON.parse(body) as JiraPayload;
   const issueKey = payload.issue?.key ?? "unknown";
   const summary = payload.issue?.fields?.summary ?? "";
   const description = extractDescription(payload);
 
-  if (!description) {
-    return { status: "skipped: no description" };
-  }
+  if (!description) return { status: "skipped: no description" };
 
   const seed = lastWord(description);
 
-  await sendTelegram(
-    `🚀 <b>Itachi Pipeline Dimulai</b>\n\n` +
-    `📋 Issue: <b>${issueKey}</b>\n` +
-    `📝 Summary: ${summary}\n` +
-    `🌱 Seed word: <b>${seed}</b>\n\n` +
-    `⏳ Memproses 9 agent...`
-  );
+  await sendTelegram(`🚀 <b>Pipeline Dimulai</b>\n📋 <b>${issueKey}</b>: ${summary}\n🌱 Seed: <b>${seed}</b>\n⏳ Memproses 9 agent...`);
 
   const results = await runPipeline(seed);
 
-  const summary2 = results.map(r => {
+  const agents = results.map(r => {
     const url = saveFile(r.label.replace(/[\s—]+/g, "_"), `[${r.label}] ${r.output}`);
     return { agent: r.label, output: r.output, url };
   });
@@ -67,17 +57,12 @@ export async function handleJiraWebhook(body: string): Promise<{ status: string 
     `Issue: ${issueKey} — ${summary}`,
     `Seed: "${seed}"`,
     ``,
-    ...summary2.map(s => `[${s.agent}] ${s.output} | ${s.url}`),
+    ...agents.map(a => `[${a.agent}] ${a.output} | ${a.url}`),
   ].join("\n");
 
   const finalUrl = saveFile("run_pipeline", finalContent);
 
-  await sendTelegram(
-    `✅ <b>Pipeline Selesai!</b>\n\n` +
-    `📋 Issue: <b>${issueKey}</b>\n` +
-    `🔗 Hasil lengkap: ${finalUrl}\n\n` +
-    results.map((r, i) => `${i + 1}. [${r.label}] ${r.output}`).join("\n")
-  );
+  await sendTelegram(`✅ <b>Pipeline Selesai!</b>\n📋 <b>${issueKey}</b>\n🔗 ${finalUrl}`);
 
   return { status: "ok" };
 }
