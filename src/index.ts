@@ -21,7 +21,10 @@ const BASE_URL = (process.env.BASE_URL ?? `http://localhost:${PORT}`).replace(/\
 const fileStore = new Map<string, { filename: string; content: string }>();
 
 function toHtml(content: string): string {
-  const escaped = content.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const urlRegex = /(https?:\/\/[^\s|]+)/g;
+  const escaped = content
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(urlRegex, '<a href="$1" target="_blank" style="color:#58a6ff">$1</a>');
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -29,7 +32,7 @@ function toHtml(content: string): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Itachi Output</title>
   <style>
-    body { font-family: monospace; background: #0d1117; color: #c9d1d9; padding: 2rem; line-height: 1.6; }
+    body { font-family: monospace; background: #0d1117; color: #c9d1d9; padding: 2rem; line-height: 1.8; }
     pre { white-space: pre-wrap; word-break: break-word; }
   </style>
 </head>
@@ -228,7 +231,22 @@ Aturan:
 
 ${stepList}
 
-Setelah semua 9 tool dipanggil, tampilkan ringkasan semua URL yang didapat.`;
+Step 10 (FINAL): Setelah semua 9 tool dipanggil, kumpulkan semua hasilnya lalu panggil tool \`run_pipeline\` dengan format berikut sebagai \`input\`:
+
+=== Pipeline Selesai ===
+Input: "${input}"
+
+[PM — create-spec] <10 kata step 1> | <URL step 1>
+[PM — write-ticket] <10 kata step 2> | <URL step 2>
+[Architect — review] <10 kata step 3> | <URL step 3>
+[Designer — create-design] <10 kata step 4> | <URL step 4>
+[BE — implement-api] <10 kata step 5> | <URL step 5>
+[FE — implement] <10 kata step 6> | <URL step 6>
+[FE — validate] <10 kata step 7> | <URL step 7>
+[QA — write-tests] <10 kata step 8> | <URL step 8>
+[DevOps — deploy] <10 kata step 9> | <URL step 9>
+
+Setelah tool run_pipeline merespons, tampilkan URL hasil akhir tersebut.`;
     } else {
       const agent = agentRoles[tool];
       const stepInstruction = agent?.buildStep(input) ?? `Generate 10 words starting with "${input}"`;
