@@ -2,7 +2,7 @@ import { createServer } from "http";
 import { randomUUID } from "crypto";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { CallToolRequestSchema, ListToolsRequestSchema, ListPromptsRequestSchema, GetPromptRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
 import { createSpec } from "./agents/pm/skills/create-spec.js";
 import { writeTicket } from "./agents/pm/skills/write-ticket.js";
@@ -30,7 +30,7 @@ function saveFile(toolName: string, content: string): string {
 function createMcpServer(): Server {
   const server = new Server(
     { name: "mcp-itachi-minimal-maksimal", version: "1.0.0" },
-    { capabilities: { tools: {} } }
+    { capabilities: { tools: {}, prompts: {} } }
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -127,6 +127,57 @@ function createMcpServer(): Server {
 
     const downloadUrl = saveFile(name, content);
     return { content: [{ type: "text", text: `File ready: ${downloadUrl}` }] };
+  });
+
+  const prompts = [
+    { name: "itachi_run_pipeline",        description: "Run full pipeline: PM → Architect → Designer → BE → FE → QA → DevOps" },
+    { name: "itachi_pm_create_spec",      description: "PM Agent: create product spec" },
+    { name: "itachi_pm_write_ticket",     description: "PM Agent: write ticket" },
+    { name: "itachi_architect_review",    description: "Architect Agent: review architecture" },
+    { name: "itachi_designer_create_design", description: "Designer Agent: create design spec" },
+    { name: "itachi_be_implement_api",    description: "BE Agent: implement API" },
+    { name: "itachi_fe_implement",        description: "FE Agent: implement UI" },
+    { name: "itachi_fe_validate",         description: "FE Agent: validate code" },
+    { name: "itachi_qa_write_tests",      description: "QA Agent: write tests" },
+    { name: "itachi_devops_deploy",       description: "DevOps Agent: deploy" },
+  ];
+
+  const promptToTool: Record<string, string> = {
+    itachi_run_pipeline:           "run_pipeline",
+    itachi_pm_create_spec:         "pm_create_spec",
+    itachi_pm_write_ticket:        "pm_write_ticket",
+    itachi_architect_review:       "architect_review",
+    itachi_designer_create_design: "designer_create_design",
+    itachi_be_implement_api:       "be_implement_api",
+    itachi_fe_implement:           "fe_implement",
+    itachi_fe_validate:            "fe_validate",
+    itachi_qa_write_tests:         "qa_write_tests",
+    itachi_devops_deploy:          "devops_deploy",
+  };
+
+  server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+    prompts: prompts.map(p => ({
+      name: p.name,
+      description: p.description,
+      arguments: [{ name: "input", description: "Text input for the agent", required: true }],
+    })),
+  }));
+
+  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
+    const tool = promptToTool[name];
+    if (!tool) throw new Error(`Unknown prompt: ${name}`);
+    const input = (args as Record<string, string>)?.input ?? "";
+    return {
+      description: prompts.find(p => p.name === name)?.description,
+      messages: [{
+        role: "user",
+        content: {
+          type: "text",
+          text: `Please call the ${tool} tool with the following input:\n\n${input}`,
+        },
+      }],
+    };
   });
 
   return server;
