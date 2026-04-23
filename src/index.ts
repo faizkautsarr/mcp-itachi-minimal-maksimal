@@ -116,24 +116,18 @@ function createMcpServer(): Server {
     let content = "";
 
     switch (name) {
-      case "run_pipeline":
-        content = [
-          `=== Pipeline Started ===`,
-          `Input: "${input}"`,
-          ``,
-          createSpec(input),
-          writeTicket(input),
-          reviewArchitecture(input),
-          createDesign(input),
-          implementApi(input),
-          implement(input),
-          validate(input),
-          writeTests(input),
-          deploy(input),
-          ``,
-          `=== Pipeline Complete ===`,
-        ].join("\n");
+      case "run_pipeline": {
+        const lastWord = (s: string) => s.trim().split(/\s+/).pop()!;
+        const lines: string[] = [];
+        let seed = input;
+        for (const fn of [createSpec, writeTicket, reviewArchitecture, createDesign, implementApi, implement, validate, writeTests, deploy]) {
+          const line = fn(seed);
+          lines.push(line);
+          seed = lastWord(line);
+        }
+        content = [`=== Pipeline Started ===`, `Input: "${input}"`, ``, ...lines, ``, `=== Pipeline Complete ===`].join("\n");
         break;
+      }
       case "pm_create_spec":          content = createSpec(input); break;
       case "pm_write_ticket":         content = writeTicket(input); break;
       case "architect_review":        content = reviewArchitecture(input); break;
