@@ -4,15 +4,15 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, ListPromptsRequestSchema, GetPromptRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
-import { createSpec } from "./agents/pm/skills/create-spec.js";
-import { writeTicket } from "./agents/pm/skills/write-ticket.js";
-import { reviewArchitecture } from "./agents/architect/skills/review-architecture.js";
-import { createDesign } from "./agents/designer/skills/create-design.js";
-import { implementApi } from "./agents/be/skills/implement-api.js";
-import { implement } from "./agents/fe/skills/implement.js";
-import { validate } from "./agents/fe/skills/validate.js";
-import { writeTests } from "./agents/qa/skills/write-tests.js";
-import { deploy } from "./agents/devops/skills/deploy.js";
+import { createSpec, buildStep as pmSpecStep } from "./agents/pm/skills/create-spec.js";
+import { writeTicket, buildStep as pmTicketStep } from "./agents/pm/skills/write-ticket.js";
+import { reviewArchitecture, buildStep as architectStep } from "./agents/architect/skills/review-architecture.js";
+import { createDesign, buildStep as designerStep } from "./agents/designer/skills/create-design.js";
+import { implementApi, buildStep as beStep } from "./agents/be/skills/implement-api.js";
+import { implement, buildStep as feImplStep } from "./agents/fe/skills/implement.js";
+import { validate, buildStep as feValidateStep } from "./agents/fe/skills/validate.js";
+import { writeTests, buildStep as qaStep } from "./agents/qa/skills/write-tests.js";
+import { deploy, buildStep as devopsStep } from "./agents/devops/skills/deploy.js";
 
 const PORT = process.env.PORT ?? 3000;
 const BASE_URL = (process.env.BASE_URL ?? `http://localhost:${PORT}`).replace(/\/$/, "");
@@ -168,16 +168,26 @@ function createMcpServer(): Server {
     })),
   }));
 
-  const agentRole: Record<string, string> = {
-    pm_create_spec:         "PM Agent writing product specs and requirements",
-    pm_write_ticket:        "PM Agent writing development tickets",
-    architect_review:       "Software Architect designing system architecture",
-    designer_create_design: "UI/UX Designer creating design specs",
-    be_implement_api:       "Backend Engineer implementing REST APIs",
-    fe_implement:           "Frontend Engineer building UI components",
-    fe_validate:            "Frontend Engineer validating code quality",
-    qa_write_tests:         "QA Engineer writing test cases",
-    devops_deploy:          "DevOps Engineer handling deployment",
+  const agentStepBuilders: Array<(seed: string) => string> = [
+    pmSpecStep, pmTicketStep, architectStep, designerStep,
+    beStep, feImplStep, feValidateStep, qaStep, devopsStep,
+  ];
+
+  const agentToolNames = [
+    "pm_create_spec", "pm_write_ticket", "architect_review", "designer_create_design",
+    "be_implement_api", "fe_implement", "fe_validate", "qa_write_tests", "devops_deploy",
+  ];
+
+  const agentRoles: Record<string, { buildStep: (s: string) => string; role: string }> = {
+    pm_create_spec:         { buildStep: pmSpecStep,      role: "PM Agent writing product specs and requirements" },
+    pm_write_ticket:        { buildStep: pmTicketStep,    role: "PM Agent writing development tickets" },
+    architect_review:       { buildStep: architectStep,   role: "Software Architect designing system architecture" },
+    designer_create_design: { buildStep: designerStep,    role: "UI/UX Designer creating design specs" },
+    be_implement_api:       { buildStep: beStep,          role: "Backend Engineer implementing REST APIs" },
+    fe_implement:           { buildStep: feImplStep,      role: "Frontend Engineer building UI components" },
+    fe_validate:            { buildStep: feValidateStep,  role: "Frontend Engineer validating code quality" },
+    qa_write_tests:         { buildStep: qaStep,          role: "QA Engineer writing test cases" },
+    devops_deploy:          { buildStep: devopsStep,      role: "DevOps Engineer handling deployment" },
   };
 
   server.setRequestHandler(GetPromptRequestSchema, async (request) => {
@@ -189,26 +199,23 @@ function createMcpServer(): Server {
     let text: string;
 
     if (tool === "run_pipeline") {
+      const steps = agentStepBuilders.map((fn, i) =>
+        `${i + 1}. ${fn("the last word from the previous step" + (i === 0 ? ` (first step: use the first word from input "${input}")` : ""))}`
+      ).join("\n");
+
       text = `You are orchestrating a 9-agent software development pipeline using last-word chaining.
 
 Input: "${input}"
 
 Rules:
 - Each agent generates EXACTLY 10 words relevant to their role
-- The LAST WORD of each agent's sentence becomes the FIRST WORD of the next agent's sentence
-- Words must be meaningful and related to each agent's domain
+- The LAST WORD of each agent's output becomes the FIRST WORD (seed) of the next agent
+- Step 1 starts with the first word from the input
 
-Execute each step IN ORDER:
+Steps (each defined by its agent skill):
+${steps}
 
-Step 1 — [PM — create-spec]: Start with a word from "${input}". Generate 10 meaningful words about product specs/requirements.
-Step 2 — [PM — write-ticket]: Take the LAST WORD from Step 1. Generate 10 words about dev tickets/tasks.
-Step 3 — [Architect — review]: Take the LAST WORD from Step 2. Generate 10 words about system architecture.
-Step 4 — [Designer — create-design]: Take the LAST WORD from Step 3. Generate 10 words about UI/UX design.
-Step 5 — [BE — implement-api]: Take the LAST WORD from Step 4. Generate 10 words about backend APIs.
-Step 6 — [FE — implement]: Take the LAST WORD from Step 5. Generate 10 words about frontend components.
-Step 7 — [FE — validate]: Take the LAST WORD from Step 6. Generate 10 words about code validation.
-Step 8 — [QA — write-tests]: Take the LAST WORD from Step 7. Generate 10 words about testing.
-Step 9 — [DevOps — deploy]: Take the LAST WORD from Step 8. Generate 10 words about deployment.
+Execute all 9 steps IN ORDER. Track the last word of each output to seed the next step.
 
 Format output EXACTLY like this:
 === Pipeline Started ===
@@ -228,12 +235,9 @@ Input: "${input}"
 
 Then call the \`run_pipeline\` tool with that entire block as \`input\`. After the tool responds, show the exact download URL.`;
     } else {
-      const role = agentRole[tool] ?? tool;
-      text = `You are a ${role}.
-
-The input/seed word is: "${input}"
-
-Generate EXACTLY 10 words relevant to your role, starting with "${input}". The words must be meaningful and related to ${role.toLowerCase()}.
+      const agent = agentRoles[tool];
+      const stepInstruction = agent?.buildStep(input) ?? `Generate 10 words starting with "${input}"`;
+      text = `${stepInstruction}
 
 Return only the 10 words as a single line. Then call the \`${tool}\` tool with those 10 words as the \`input\` parameter. After the tool responds, show the exact download URL.`;
     }
