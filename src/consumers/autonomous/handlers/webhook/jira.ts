@@ -15,35 +15,50 @@ interface JiraPayload {
     };
   };
   changelog?: {
-    items?: Array<{ field: string; toString: string }>;
+    items?: Array<{ field: string; fromString?: string; toString: string }>;
   };
 }
 
-function extractDescription(payload: JiraPayload): string | null {
+function extractDescriptionChange(payload: JiraPayload): { before: string; after: string } | null {
   const descChange = payload.changelog?.items?.find(i => i.field === "description");
-  if (descChange) return descChange.toString;
+  if (descChange) return { before: descChange.fromString ?? "-", after: descChange.toString };
 
   const raw = payload.issue?.fields?.description;
   if (!raw) return null;
-  if (typeof raw === "string") return raw;
-
-  return raw.content
+  const text = typeof raw === "string" ? raw : (raw.content
     ?.flatMap(b => b.content ?? [])
     .map(n => n.text ?? "")
-    .join(" ") ?? null;
+    .join(" ") ?? "");
+  return text ? { before: "-", after: text } : null;
+}
+
+function jakartaTime(): string {
+  return new Date().toLocaleString("id-ID", {
+    timeZone: "Asia/Jakarta",
+    day: "2-digit", month: "long", year: "numeric",
+    hour: "2-digit", minute: "2-digit", second: "2-digit"
+  }) + " WIB";
 }
 
 export async function handleJiraWebhook(body: string): Promise<{ status: string }> {
   const payload = JSON.parse(body) as JiraPayload;
   const issueKey = payload.issue?.key ?? "unknown";
   const summary = payload.issue?.fields?.summary ?? "";
-  const description = extractDescription(payload);
+  const change = extractDescriptionChange(payload);
 
-  if (!description) return { status: "skipped: no description" };
+  if (!change) return { status: "skipped: no description" };
 
-  const seed = lastWord(description);
+  const seed = lastWord(change.after);
 
-  await sendTelegram(`🚀 <b>Pipeline Dimulai</b>\n📋 <b>${issueKey}</b>: ${summary}\n🌱 Seed: <b>${seed}</b>\n⏳ Memproses 9 agent...`);
+  await sendTelegram(
+    `🚀 Pipeline Dimulai\n\n` +
+    `Issue       : ${issueKey} — ${summary}\n` +
+    `Sebelum     : ${change.before}\n` +
+    `Sesudah     : ${change.after}\n` +
+    `Kata diambil: <b>${seed}</b>\n` +
+    `Timestamp   : ${jakartaTime()}\n\n` +
+    `⏳ Memproses 9 agent...`
+  );
 
   const results = await runPipeline(seed);
 
