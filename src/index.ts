@@ -116,27 +116,16 @@ function createMcpServer(): Server {
     let content = "";
 
     switch (name) {
-      case "run_pipeline": {
-        const lastWord = (s: string) => s.trim().split(/\s+/).pop()!;
-        const lines: string[] = [];
-        let seed = input;
-        for (const fn of [createSpec, writeTicket, reviewArchitecture, createDesign, implementApi, implement, validate, writeTests, deploy]) {
-          const line = await fn(seed);
-          lines.push(line);
-          seed = lastWord(line);
-        }
-        content = [`=== Pipeline Started ===`, `Input: "${input}"`, ``, ...lines, ``, `=== Pipeline Complete ===`].join("\n");
-        break;
-      }
-      case "pm_create_spec":          content = await createSpec(input); break;
-      case "pm_write_ticket":         content = await writeTicket(input); break;
-      case "architect_review":        content = await reviewArchitecture(input); break;
-      case "designer_create_design":  content = await createDesign(input); break;
-      case "be_implement_api":        content = await implementApi(input); break;
-      case "fe_implement":            content = await implement(input); break;
-      case "fe_validate":             content = await validate(input); break;
-      case "qa_write_tests":          content = await writeTests(input); break;
-      case "devops_deploy":           content = await deploy(input); break;
+      case "run_pipeline":             content = input; break;
+      case "pm_create_spec":          content = createSpec(input); break;
+      case "pm_write_ticket":         content = writeTicket(input); break;
+      case "architect_review":        content = reviewArchitecture(input); break;
+      case "designer_create_design":  content = createDesign(input); break;
+      case "be_implement_api":        content = implementApi(input); break;
+      case "fe_implement":            content = implement(input); break;
+      case "fe_validate":             content = validate(input); break;
+      case "qa_write_tests":          content = writeTests(input); break;
+      case "devops_deploy":           content = deploy(input); break;
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -179,20 +168,76 @@ function createMcpServer(): Server {
     })),
   }));
 
+  const agentInstructions: Record<string, { role: string; context: string }> = {
+    run_pipeline: { role: "", context: "" },
+    pm_create_spec:        { role: "PM Agent", context: "product specifications, user stories, and requirements" },
+    pm_write_ticket:       { role: "PM Agent", context: "tickets, tasks, sprint items, and acceptance criteria" },
+    architect_review:      { role: "Architect Agent", context: "system architecture, microservices, APIs, and scalability" },
+    designer_create_design:{ role: "Designer Agent", context: "UI/UX design, wireframes, components, and user flows" },
+    be_implement_api:      { role: "Backend Engineer", context: "REST APIs, controllers, database models, and middleware" },
+    fe_implement:          { role: "Frontend Engineer", context: "React components, state management, routing, and UI" },
+    fe_validate:           { role: "Frontend QA", context: "code validation, linting, type checking, and builds" },
+    qa_write_tests:        { role: "QA Engineer", context: "test cases, unit tests, integration tests, and assertions" },
+    devops_deploy:         { role: "DevOps Engineer", context: "deployment, CI/CD pipelines, containers, and infrastructure" },
+  };
+
   server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
     const tool = promptToTool[name];
     if (!tool) throw new Error(`Unknown prompt: ${name}`);
     const input = (args as Record<string, string>)?.input ?? "";
+
+    let text: string;
+
+    if (tool === "run_pipeline") {
+      text = `You are orchestrating a 9-agent software development pipeline. Each agent generates exactly 10 words, and the LAST WORD of each agent's output becomes the FIRST WORD of the next agent's sentence.
+
+Input: "${input}"
+
+Execute each step IN ORDER. For each step, roleplay as that agent and generate exactly 10 words relevant to their role, starting with the required seed word.
+
+Steps:
+1. [PM — create-spec]: Start with a word from "${input}". Generate 10 words about product specs/requirements.
+2. [PM — write-ticket]: Start with the LAST WORD from step 1. Generate 10 words about tickets/tasks.
+3. [Architect — review]: Start with the LAST WORD from step 2. Generate 10 words about system architecture.
+4. [Designer — create-design]: Start with the LAST WORD from step 3. Generate 10 words about UI/UX design.
+5. [BE — implement-api]: Start with the LAST WORD from step 4. Generate 10 words about backend APIs.
+6. [FE — implement]: Start with the LAST WORD from step 5. Generate 10 words about frontend components.
+7. [FE — validate]: Start with the LAST WORD from step 6. Generate 10 words about code validation.
+8. [QA — write-tests]: Start with the LAST WORD from step 7. Generate 10 words about testing.
+9. [DevOps — deploy]: Start with the LAST WORD from step 8. Generate 10 words about deployment.
+
+Format your combined output EXACTLY like this (each line prefixed with the agent label):
+=== Pipeline Started ===
+Input: "${input}"
+
+[PM — create-spec] word1 word2 word3 word4 word5 word6 word7 word8 word9 word10
+[PM — write-ticket] word1 word2 word3 word4 word5 word6 word7 word8 word9 word10
+[Architect — review] word1 word2 word3 word4 word5 word6 word7 word8 word9 word10
+[Designer — create-design] word1 word2 word3 word4 word5 word6 word7 word8 word9 word10
+[BE — implement-api] word1 word2 word3 word4 word5 word6 word7 word8 word9 word10
+[FE — implement] word1 word2 word3 word4 word5 word6 word7 word8 word9 word10
+[FE — validate] word1 word2 word3 word4 word5 word6 word7 word8 word9 word10
+[QA — write-tests] word1 word2 word3 word4 word5 word6 word7 word8 word9 word10
+[DevOps — deploy] word1 word2 word3 word4 word5 word6 word7 word8 word9 word10
+
+=== Pipeline Complete ===
+
+Then call the \`run_pipeline\` tool with that entire formatted block as the \`input\` parameter. After the tool responds, show the user the exact download URL.`;
+    } else {
+      const { role, context } = agentInstructions[tool];
+      text = `You are a ${role}.
+
+For the input: "${input}"
+
+Roleplay as this agent and generate exactly 10 words about ${context}. The first word should come from or relate to the input. Return only the 10 words as a single sentence.
+
+Then call the \`${tool}\` tool with your generated sentence as the \`input\` parameter. After the tool responds, show the user the exact download URL.`;
+    }
+
     return {
       description: prompts.find(p => p.name === name)?.description,
-      messages: [{
-        role: "user",
-        content: {
-          type: "text",
-          text: `Call the ${tool} tool with this input: ${input}\n\nAfter the tool responds, display the full download URL from the result to the user. Do not summarize — show the exact URL so the user can download the file.`,
-        },
-      }],
+      messages: [{ role: "user", content: { type: "text", text } }],
     };
   });
 

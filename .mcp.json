@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "mcp-itachi": {
+      "url": "https://mcp-itachi-minimal-maksimal-production.up.railway.app/sse"
+    }
+  }
+}
