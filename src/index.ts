@@ -174,7 +174,7 @@ function createMcpServer(): Server {
         role: "user",
         content: {
           type: "text",
-          text: `Please call the ${tool} tool with the following input:\n\n${input}`,
+          text: `Call the ${tool} tool with this input: ${input}\n\nAfter the tool responds, display the full download URL from the result to the user. Do not summarize — show the exact URL so the user can download the file.`,
         },
       }],
     };
