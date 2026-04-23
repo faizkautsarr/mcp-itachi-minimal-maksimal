@@ -1,6 +1,7 @@
 import { createServer, IncomingMessage } from "http";
-import { randomUUID } from "crypto";
 import { runPipeline } from "./autonomous/orchestrator.js";
+import { handleJiraWebhook } from "./autonomous/jira-webhook.js";
+import { fileStore, saveFile } from "./files.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, ListPromptsRequestSchema, GetPromptRequestSchema } from "@modelcontextprotocol/sdk/types.js";
@@ -16,37 +17,6 @@ import { writeTests, buildStep as qaStep } from "./agents/qa/skills/write-tests.
 import { deploy, buildStep as devopsStep } from "./agents/devops/skills/deploy.js";
 
 const PORT = process.env.PORT ?? 3000;
-const BASE_URL = (process.env.BASE_URL ?? `http://localhost:${PORT}`).replace(/\/$/, "");
-
-// In-memory store for generated .txt files
-const fileStore = new Map<string, { filename: string; content: string }>();
-
-function toHtml(content: string): string {
-  const urlRegex = /(https?:\/\/[^\s|]+)/g;
-  const escaped = content
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(urlRegex, '<a href="$1" target="_blank" style="color:#58a6ff">$1</a>');
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Itachi Output</title>
-  <style>
-    body { font-family: monospace; background: #0d1117; color: #c9d1d9; padding: 2rem; line-height: 1.8; }
-    pre { white-space: pre-wrap; word-break: break-word; }
-  </style>
-</head>
-<body><pre>${escaped}</pre></body>
-</html>`;
-}
-
-function saveFile(toolName: string, content: string): string {
-  const id = randomUUID();
-  const filename = `${toolName}_${Date.now()}.html`;
-  fileStore.set(id, { filename, content: toHtml(content) });
-  return `${BASE_URL}/files/${id}`;
-}
 
 function createMcpServer(): Server {
   const server = new Server(
@@ -354,6 +324,17 @@ const httpServer = createServer(async (req, res) => {
       res.end(JSON.stringify({ error: String(err) }));
     }
 
+  } else if (req.method === "POST" && url.pathname === "/webhooks/jira") {
+    const body = await readBody(req);
+    try {
+      const result = await handleJiraWebhook(body);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: String(err) }));
+    }
+
   } else if (req.method === "GET" && url.pathname === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ status: "ok", sessions: transports.size, files: fileStore.size }));
@@ -363,6 +344,8 @@ const httpServer = createServer(async (req, res) => {
     res.end("Not found");
   }
 });
+
+const BASE_URL = (process.env.BASE_URL ?? `http://localhost:${PORT}`).replace(/\/$/, "");
 
 httpServer.listen(PORT, () => {
   console.log(`MCP server running on port ${PORT}`);
