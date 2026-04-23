@@ -168,115 +168,16 @@ function createMcpServer(): Server {
     })),
   }));
 
-  const agentPrompts: Record<string, (input: string) => string> = {
-    pm_create_spec: (input) => `You are a Product Manager. Based on this feature request: "${input}"
-
-Write a concise product specification covering:
-- Problem statement
-- Goals & success metrics
-- User stories (at least 3)
-- Scope (in/out)
-- Acceptance criteria
-
-Be specific and actionable.
-
-Then call the \`pm_create_spec\` tool with your full spec as the \`input\` parameter. After the tool responds, show the user the exact download URL.`,
-
-    pm_write_ticket: (input) => `You are a Product Manager. Based on this context: "${input}"
-
-Write detailed development tickets in this format for each user story:
-**[TICKET-XXX] Title**
-- Description
-- Acceptance Criteria
-- Story Points
-- Priority
-
-Create at least 3 tickets.
-
-Then call the \`pm_write_ticket\` tool with your tickets as the \`input\` parameter. After the tool responds, show the user the exact download URL.`,
-
-    architect_review: (input) => `You are a Software Architect. Based on this spec/context: "${input}"
-
-Design the system architecture covering:
-- High-level architecture diagram (text-based)
-- Tech stack recommendations with justification
-- Data models / ERD
-- API design overview
-- Scalability & performance considerations
-- Security considerations
-
-Then call the \`architect_review\` tool with your architecture document as the \`input\` parameter. After the tool responds, show the user the exact download URL.`,
-
-    designer_create_design: (input) => `You are a UI/UX Designer. Based on this spec/architecture: "${input}"
-
-Create a design specification covering:
-- User flow diagram (text-based)
-- Key screens/pages with layout description
-- Component inventory
-- Design tokens (colors, typography, spacing)
-- Interaction patterns
-- Accessibility considerations
-
-Then call the \`designer_create_design\` tool with your design spec as the \`input\` parameter. After the tool responds, show the user the exact download URL.`,
-
-    be_implement_api: (input) => `You are a Backend Engineer. Based on this spec/architecture: "${input}"
-
-Write the API implementation plan covering:
-- REST API endpoints (method, path, request/response schema)
-- Database schema (tables, fields, relationships)
-- Key business logic
-- Authentication/authorization approach
-- Sample code snippets for critical endpoints
-
-Then call the \`be_implement_api\` tool with your API implementation as the \`input\` parameter. After the tool responds, show the user the exact download URL.`,
-
-    fe_implement: (input) => `You are a Frontend Engineer. Based on this spec/API: "${input}"
-
-Write the frontend implementation plan covering:
-- Component tree structure
-- State management approach
-- Key components with props/interfaces
-- API integration points
-- Routing structure
-- Sample code snippets for key components
-
-Then call the \`fe_implement\` tool with your frontend implementation as the \`input\` parameter. After the tool responds, show the user the exact download URL.`,
-
-    fe_validate: (input) => `You are a Frontend Engineer doing code review. Based on this implementation: "${input}"
-
-Perform a validation review covering:
-- Code quality assessment
-- Performance concerns
-- Accessibility issues
-- Browser compatibility
-- Bundle size considerations
-- Recommended improvements with code examples
-
-Then call the \`fe_validate\` tool with your validation report as the \`input\` parameter. After the tool responds, show the user the exact download URL.`,
-
-    qa_write_tests: (input) => `You are a QA Engineer. Based on this implementation: "${input}"
-
-Write a comprehensive test plan covering:
-- Unit tests (with example test code)
-- Integration tests
-- E2E test scenarios
-- Edge cases & negative tests
-- Performance test scenarios
-- Test data requirements
-
-Then call the \`qa_write_tests\` tool with your test plan as the \`input\` parameter. After the tool responds, show the user the exact download URL.`,
-
-    devops_deploy: (input) => `You are a DevOps Engineer. Based on this project: "${input}"
-
-Write the deployment plan covering:
-- CI/CD pipeline configuration (YAML example)
-- Docker/containerization setup
-- Environment configuration (dev/staging/prod)
-- Infrastructure as code snippets
-- Monitoring & alerting setup
-- Rollback strategy
-
-Then call the \`devops_deploy\` tool with your deployment plan as the \`input\` parameter. After the tool responds, show the user the exact download URL.`,
+  const agentRole: Record<string, string> = {
+    pm_create_spec:         "PM Agent writing product specs and requirements",
+    pm_write_ticket:        "PM Agent writing development tickets",
+    architect_review:       "Software Architect designing system architecture",
+    designer_create_design: "UI/UX Designer creating design specs",
+    be_implement_api:       "Backend Engineer implementing REST APIs",
+    fe_implement:           "Frontend Engineer building UI components",
+    fe_validate:            "Frontend Engineer validating code quality",
+    qa_write_tests:         "QA Engineer writing test cases",
+    devops_deploy:          "DevOps Engineer handling deployment",
   };
 
   server.setRequestHandler(GetPromptRequestSchema, async (request) => {
@@ -288,41 +189,53 @@ Then call the \`devops_deploy\` tool with your deployment plan as the \`input\` 
     let text: string;
 
     if (tool === "run_pipeline") {
-      text = `You are orchestrating a full software development pipeline for: "${input}"
+      text = `You are orchestrating a 9-agent software development pipeline using last-word chaining.
 
-Execute each agent IN ORDER. Each agent does REAL work based on the previous agent's output. Pass the full output of each agent as context to the next.
+Input: "${input}"
 
-**Step 1 — PM Agent (create-spec)**
-Write a product specification for: "${input}"
-Cover: problem statement, goals, user stories, acceptance criteria.
+Rules:
+- Each agent generates EXACTLY 10 words relevant to their role
+- The LAST WORD of each agent's sentence becomes the FIRST WORD of the next agent's sentence
+- Words must be meaningful and related to each agent's domain
 
-**Step 2 — PM Agent (write-ticket)**
-Based on the spec from Step 1, write detailed dev tickets with title, description, acceptance criteria, and story points.
+Execute each step IN ORDER:
 
-**Step 3 — Architect Agent**
-Based on Steps 1-2, design the system architecture: tech stack, data models, API overview, scalability considerations.
+Step 1 — [PM — create-spec]: Start with a word from "${input}". Generate 10 meaningful words about product specs/requirements.
+Step 2 — [PM — write-ticket]: Take the LAST WORD from Step 1. Generate 10 words about dev tickets/tasks.
+Step 3 — [Architect — review]: Take the LAST WORD from Step 2. Generate 10 words about system architecture.
+Step 4 — [Designer — create-design]: Take the LAST WORD from Step 3. Generate 10 words about UI/UX design.
+Step 5 — [BE — implement-api]: Take the LAST WORD from Step 4. Generate 10 words about backend APIs.
+Step 6 — [FE — implement]: Take the LAST WORD from Step 5. Generate 10 words about frontend components.
+Step 7 — [FE — validate]: Take the LAST WORD from Step 6. Generate 10 words about code validation.
+Step 8 — [QA — write-tests]: Take the LAST WORD from Step 7. Generate 10 words about testing.
+Step 9 — [DevOps — deploy]: Take the LAST WORD from Step 8. Generate 10 words about deployment.
 
-**Step 4 — Designer Agent**
-Based on Steps 1-3, create UI/UX design spec: user flows, key screens, components, design tokens.
+Format output EXACTLY like this:
+=== Pipeline Started ===
+Input: "${input}"
 
-**Step 5 — Backend Engineer**
-Based on Steps 1-4, write API implementation: endpoints, DB schema, business logic, code snippets.
+[PM — create-spec] <10 words>
+[PM — write-ticket] <10 words>
+[Architect — review] <10 words>
+[Designer — create-design] <10 words>
+[BE — implement-api] <10 words>
+[FE — implement] <10 words>
+[FE — validate] <10 words>
+[QA — write-tests] <10 words>
+[DevOps — deploy] <10 words>
 
-**Step 6 — Frontend Engineer**
-Based on Steps 1-5, write frontend implementation: component tree, state management, API integration, code snippets.
+=== Pipeline Complete ===
 
-**Step 7 — Frontend QA**
-Based on Step 6, validate the frontend: code quality, performance, accessibility, improvements.
-
-**Step 8 — QA Engineer**
-Based on Steps 1-7, write test plan: unit tests, integration tests, E2E scenarios, edge cases.
-
-**Step 9 — DevOps Engineer**
-Based on all steps, write deployment plan: CI/CD config, Docker setup, environments, monitoring.
-
-Format your output with clear section headers for each agent. Then call the \`run_pipeline\` tool with the complete output as the \`input\` parameter. After the tool responds, show the user the exact download URL.`;
+Then call the \`run_pipeline\` tool with that entire block as \`input\`. After the tool responds, show the exact download URL.`;
     } else {
-      text = agentPrompts[tool]?.(input) ?? `Call the ${tool} tool with input: ${input}. Show the download URL after.`;
+      const role = agentRole[tool] ?? tool;
+      text = `You are a ${role}.
+
+The input/seed word is: "${input}"
+
+Generate EXACTLY 10 words relevant to your role, starting with "${input}". The words must be meaningful and related to ${role.toLowerCase()}.
+
+Return only the 10 words as a single line. Then call the \`${tool}\` tool with those 10 words as the \`input\` parameter. After the tool responds, show the exact download URL.`;
     }
 
     return {
