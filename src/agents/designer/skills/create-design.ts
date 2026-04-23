@@ -1,12 +1,6 @@
-const words = ["wireframe", "prototype", "layout", "component", "color", "typography", "responsive", "flow", "mockup", "button", "form", "spacing", "grid", "icon", "palette"];
+import { generateAgentOutput } from "../../../lib/generate.js";
 
-function pick(seed: string, offset: number): string {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  return words[(hash + offset) % words.length];
-}
-
-export function createDesign(seed: string): string {
-  const sentence = [seed, pick(seed,1), pick(seed,2), pick(seed,3), pick(seed,4), pick(seed,5), pick(seed,6), pick(seed,7), pick(seed,8), pick(seed,9)].join(" ");
-  return `[Designer — create-design] ${sentence}`;
+export async function createDesign(seed: string): Promise<string> {
+  const output = await generateAgentOutput("Designer Agent", "UI/UX design, wireframes, components, and user flows", seed);
+  return `[Designer — create-design] ${output}`;
 }

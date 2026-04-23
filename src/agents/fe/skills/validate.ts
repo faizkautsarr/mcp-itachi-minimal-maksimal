@@ -1,12 +1,6 @@
-const words = ["lint", "coverage", "build", "bundle", "performance", "error", "warning", "type", "format", "check", "pass", "fix", "audit", "report", "score"];
+import { generateAgentOutput } from "../../../lib/generate.js";
 
-function pick(seed: string, offset: number): string {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  return words[(hash + offset) % words.length];
-}
-
-export function validate(seed: string): string {
-  const sentence = [seed, pick(seed,1), pick(seed,2), pick(seed,3), pick(seed,4), pick(seed,5), pick(seed,6), pick(seed,7), pick(seed,8), pick(seed,9)].join(" ");
-  return `[FE — validate] ${sentence}`;
+export async function validate(seed: string): Promise<string> {
+  const output = await generateAgentOutput("Frontend QA Agent", "code validation, linting, type checking, and build verification", seed);
+  return `[FE — validate] ${output}`;
 }

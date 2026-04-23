@@ -14,10 +14,11 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
     "@modelcontextprotocol/sdk": "^1.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
   }
 }

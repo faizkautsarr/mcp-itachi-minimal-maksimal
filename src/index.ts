@@ -121,22 +121,22 @@ function createMcpServer(): Server {
         const lines: string[] = [];
         let seed = input;
         for (const fn of [createSpec, writeTicket, reviewArchitecture, createDesign, implementApi, implement, validate, writeTests, deploy]) {
-          const line = fn(seed);
+          const line = await fn(seed);
           lines.push(line);
           seed = lastWord(line);
         }
         content = [`=== Pipeline Started ===`, `Input: "${input}"`, ``, ...lines, ``, `=== Pipeline Complete ===`].join("\n");
         break;
       }
-      case "pm_create_spec":          content = createSpec(input); break;
-      case "pm_write_ticket":         content = writeTicket(input); break;
-      case "architect_review":        content = reviewArchitecture(input); break;
-      case "designer_create_design":  content = createDesign(input); break;
-      case "be_implement_api":        content = implementApi(input); break;
-      case "fe_implement":            content = implement(input); break;
-      case "fe_validate":             content = validate(input); break;
-      case "qa_write_tests":          content = writeTests(input); break;
-      case "devops_deploy":           content = deploy(input); break;
+      case "pm_create_spec":          content = await createSpec(input); break;
+      case "pm_write_ticket":         content = await writeTicket(input); break;
+      case "architect_review":        content = await reviewArchitecture(input); break;
+      case "designer_create_design":  content = await createDesign(input); break;
+      case "be_implement_api":        content = await implementApi(input); break;
+      case "fe_implement":            content = await implement(input); break;
+      case "fe_validate":             content = await validate(input); break;
+      case "qa_write_tests":          content = await writeTests(input); break;
+      case "devops_deploy":           content = await deploy(input); break;
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
