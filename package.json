@@ -1,0 +1,23 @@
+{
+  "name": "mcp-itachi-minimal-maksimal",
+  "version": "1.0.0",
+  "description": "Agentic development MCP server",
+  "type": "module",
+  "bin": {
+    "mcp-itachi": "./dist/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  }
+}
