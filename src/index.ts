@@ -199,41 +199,36 @@ function createMcpServer(): Server {
     let text: string;
 
     if (tool === "run_pipeline") {
-      const steps = agentStepBuilders.map((fn, i) =>
-        `${i + 1}. ${fn("the last word from the previous step" + (i === 0 ? ` (first step: use the first word from input "${input}")` : ""))}`
-      ).join("\n");
+      const agentSteps = [
+        { tool: "pm_create_spec",         fn: pmSpecStep },
+        { tool: "pm_write_ticket",        fn: pmTicketStep },
+        { tool: "architect_review",       fn: architectStep },
+        { tool: "designer_create_design", fn: designerStep },
+        { tool: "be_implement_api",       fn: beStep },
+        { tool: "fe_implement",           fn: feImplStep },
+        { tool: "fe_validate",            fn: feValidateStep },
+        { tool: "qa_write_tests",         fn: qaStep },
+        { tool: "devops_deploy",          fn: devopsStep },
+      ];
+
+      const stepList = agentSteps.map(({ tool: t, fn }, i) => {
+        const seed = i === 0 ? `kata pertama dari input "${input}"` : `kata terakhir dari output step ${i}`;
+        return `Step ${i + 1}: ${fn(seed)} → panggil tool \`${t}\` dengan 10 kata tersebut sebagai \`input\`.`;
+      }).join("\n\n");
 
       text = `Kamu adalah orkestrator pipeline pengembangan software dengan 9 agent menggunakan teknik last-word chaining dalam Bahasa Indonesia.
 
 Input: "${input}"
 
 Aturan:
-- Setiap agent menghasilkan TEPAT 10 kata dalam Bahasa Indonesia yang relevan dengan perannya di dunia software engineering
+- Setiap agent menghasilkan TEPAT 10 kata dalam Bahasa Indonesia yang relevan dengan perannya
 - KATA TERAKHIR output setiap agent menjadi KATA PERTAMA (seed) agent berikutnya
-- Step 1 dimulai dari kata pertama input
+- Jalankan SATU STEP, panggil tool-nya, tunggu hasilnya, baru lanjut ke step berikutnya
+- Jangan generate semua step sekaligus — proses PER AGENT
 
-Steps (masing-masing sesuai instruksi skill agent):
-${steps}
+${stepList}
 
-Jalankan semua 9 step BERURUTAN. Lacak kata terakhir setiap output untuk seed step berikutnya.
-
-Format output PERSIS seperti ini:
-=== Pipeline Dimulai ===
-Input: "${input}"
-
-[PM — create-spec] <10 kata>
-[PM — write-ticket] <10 kata>
-[Architect — review] <10 kata>
-[Designer — create-design] <10 kata>
-[BE — implement-api] <10 kata>
-[FE — implement] <10 kata>
-[FE — validate] <10 kata>
-[QA — write-tests] <10 kata>
-[DevOps — deploy] <10 kata>
-
-=== Pipeline Selesai ===
-
-Kemudian panggil tool \`run_pipeline\` dengan seluruh blok di atas sebagai \`input\`. Setelah tool merespons, tampilkan URL-nya.`;
+Setelah semua 9 tool dipanggil, tampilkan ringkasan semua URL yang didapat.`;
     } else {
       const agent = agentRoles[tool];
       const stepInstruction = agent?.buildStep(input) ?? `Generate 10 words starting with "${input}"`;
