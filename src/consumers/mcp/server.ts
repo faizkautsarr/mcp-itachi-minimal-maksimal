@@ -12,6 +12,14 @@ import { validate, buildStep as feValidateStep } from "../../agents/fe/skills/va
 import { writeTests, buildStep as qaStep } from "../../agents/qa/skills/write-tests.js";
 import { deploy, buildStep as devopsStep } from "../../agents/devops/skills/deploy.js";
 
+import { frontendPreflight, buildStep as hbxPreflightStep } from "../../hbx/commands/frontend-preflight.js";
+import { frontendPreflight2, buildStep as hbxPreflight2Step } from "../../hbx/commands/frontend-preflight2.js";
+import { frontendImplement, buildStep as hbxImplementStep } from "../../hbx/commands/frontend-implement.js";
+import { frontendTest, buildStep as hbxTestStep } from "../../hbx/commands/frontend-test.js";
+import { frontendValidate, buildStep as hbxValidateStep } from "../../hbx/commands/frontend-validate.js";
+import { frontendReviewer, buildStep as hbxReviewerStep } from "../../hbx/commands/frontend-reviewer.js";
+import { prCreate, buildStep as hbxPrCreateStep } from "../../hbx/commands/pr-create.js";
+
 export function createMcpServer(): Server {
   const server = new Server(
     { name: "mcp-itachi-minimal-maksimal", version: "1.0.0" },
@@ -73,6 +81,41 @@ export function createMcpServer(): Server {
         name: "devops_deploy",
         description: "DevOps Agent: deploy. Returns a .txt file download URL.",
         inputSchema: { type: "object", properties: { input: { type: "string" } }, required: ["input"] }
+      },
+      {
+        name: "itachiitachi--hbx--frontend-preflight",
+        description: "HBX: Pre-flight impact analysis for a Jira ticket (Breeze + Jira). Input: ticket key (e.g. PROJ-1234).",
+        inputSchema: { type: "object", properties: { input: { type: "string", description: "Jira ticket key" } }, required: ["input"] }
+      },
+      {
+        name: "itachi--hbx--frontend-preflight2",
+        description: "HBX: Extended pre-flight with deeper Breeze graph queries. Input: ticket key.",
+        inputSchema: { type: "object", properties: { input: { type: "string", description: "Jira ticket key" } }, required: ["input"] }
+      },
+      {
+        name: "itachi--hbx--frontend-implement",
+        description: "HBX: Plan-driven parallel code + test generation for a Jira ticket. Requires preflight checkpoint. Input: ticket key.",
+        inputSchema: { type: "object", properties: { input: { type: "string", description: "Jira ticket key" } }, required: ["input"] }
+      },
+      {
+        name: "itachi--hbx--frontend-test",
+        description: "HBX: Run Vitest and enforce 80% coverage gate. Requires implementation checkpoint. Input: ticket key.",
+        inputSchema: { type: "object", properties: { input: { type: "string", description: "Jira ticket key" } }, required: ["input"] }
+      },
+      {
+        name: "itachi--hbx--frontend-validate",
+        description: "HBX: Mechanical 13-rule violation check (DS/AB/CP/L10). Requires tests checkpoint. Input: ticket key.",
+        inputSchema: { type: "object", properties: { input: { type: "string", description: "Jira ticket key" } }, required: ["input"] }
+      },
+      {
+        name: "itachi--hbx--frontend-reviewer",
+        description: "HBX: PR review against HBX code rules and architecture boundaries. Input: ticket key.",
+        inputSchema: { type: "object", properties: { input: { type: "string", description: "Jira ticket key" } }, required: ["input"] }
+      },
+      {
+        name: "itachi--hbx--pr-create",
+        description: "HBX: Create enriched PR from checkpoint data (AC checklist, coverage, validation). Input: ticket key.",
+        inputSchema: { type: "object", properties: { input: { type: "string", description: "Jira ticket key" } }, required: ["input"] }
       }
     ]
   }));
@@ -93,7 +136,14 @@ export function createMcpServer(): Server {
       case "fe_implement":            content = implement(input); break;
       case "fe_validate":             content = validate(input); break;
       case "qa_write_tests":          content = writeTests(input); break;
-      case "devops_deploy":           content = deploy(input); break;
+      case "devops_deploy":                  content = deploy(input); break;
+      case "itachi--hbx--frontend-preflight":      content = frontendPreflight(input); break;
+      case "itachi--hbx--frontend-preflight2":     content = frontendPreflight2(input); break;
+      case "itachi--hbx--frontend-implement":      content = frontendImplement(input); break;
+      case "itachi--hbx--frontend-test":           content = frontendTest(input); break;
+      case "itachi--hbx--frontend-validate":       content = frontendValidate(input); break;
+      case "itachi--hbx--frontend-reviewer":       content = frontendReviewer(input); break;
+      case "itachi--hbx--pr-create":               content = prCreate(input); break;
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -113,6 +163,13 @@ export function createMcpServer(): Server {
     { name: "itachi_fe_validate",            description: "FE Agent: validate code" },
     { name: "itachi_qa_write_tests",         description: "QA Agent: write tests" },
     { name: "itachi_devops_deploy",          description: "DevOps Agent: deploy" },
+    { name: "hbx_frontend_preflight",        description: "HBX: Pre-flight impact analysis for a Jira ticket" },
+    { name: "hbx_frontend_preflight2",       description: "HBX: Extended pre-flight with deeper Breeze queries" },
+    { name: "hbx_frontend_implement",        description: "HBX: Plan-driven parallel code + test generation" },
+    { name: "hbx_frontend_test",             description: "HBX: Run Vitest + enforce 80% coverage gate" },
+    { name: "hbx_frontend_validate",         description: "HBX: Mechanical 13-rule violation check" },
+    { name: "hbx_frontend_reviewer",         description: "HBX: PR review against code rules" },
+    { name: "hbx_pr_create",                 description: "HBX: Create enriched PR from checkpoint" },
   ];
 
   const promptToTool: Record<string, string> = {
@@ -126,6 +183,13 @@ export function createMcpServer(): Server {
     itachi_fe_validate:            "fe_validate",
     itachi_qa_write_tests:         "qa_write_tests",
     itachi_devops_deploy:          "devops_deploy",
+    hbx_frontend_preflight:        "itachi--hbx--frontend-preflight",
+    hbx_frontend_preflight2:       "itachi--hbx--frontend-preflight2",
+    hbx_frontend_implement:        "itachi--hbx--frontend-implement",
+    hbx_frontend_test:             "itachi--hbx--frontend-test",
+    hbx_frontend_validate:         "itachi--hbx--frontend-validate",
+    hbx_frontend_reviewer:         "itachi--hbx--frontend-reviewer",
+    hbx_pr_create:                 "itachi--hbx--pr-create",
   };
 
   server.setRequestHandler(ListPromptsRequestSchema, async () => ({
@@ -145,7 +209,14 @@ export function createMcpServer(): Server {
     fe_implement:           { buildStep: feImplStep,      role: "Frontend Engineer building UI components" },
     fe_validate:            { buildStep: feValidateStep,  role: "Frontend Engineer validating code quality" },
     qa_write_tests:         { buildStep: qaStep,          role: "QA Engineer writing test cases" },
-    devops_deploy:          { buildStep: devopsStep,      role: "DevOps Engineer handling deployment" },
+    devops_deploy:                   { buildStep: devopsStep,         role: "DevOps Engineer handling deployment" },
+    "itachi--hbx--frontend-preflight":     { buildStep: hbxPreflightStep,   role: "Frontend Engineer running pre-flight impact analysis" },
+    "itachi--hbx--frontend-preflight2":    { buildStep: hbxPreflight2Step,  role: "Frontend Engineer running extended pre-flight analysis" },
+    "itachi--hbx--frontend-implement":     { buildStep: hbxImplementStep,   role: "Frontend Engineer implementing Jira ticket with plan-driven codegen" },
+    "itachi--hbx--frontend-test":          { buildStep: hbxTestStep,        role: "Frontend Engineer running Vitest and coverage gate" },
+    "itachi--hbx--frontend-validate":      { buildStep: hbxValidateStep,    role: "Frontend Engineer running mechanical violation checks" },
+    "itachi--hbx--frontend-reviewer":      { buildStep: hbxReviewerStep,    role: "Frontend Engineer performing PR review" },
+    "itachi--hbx--pr-create":              { buildStep: hbxPrCreateStep,    role: "Frontend Engineer creating enriched PR from checkpoint" },
   };
 
   server.setRequestHandler(GetPromptRequestSchema, async (request) => {
