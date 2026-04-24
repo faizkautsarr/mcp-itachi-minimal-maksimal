@@ -38,7 +38,7 @@ const httpServer = createServer(async (req, res) => {
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     const server = createMcpServer();
     await server.connect(transport);
-    await transport.handleRequest(req, res, await readBody(req));
+    await transport.handleRequest(req, res);
 
   // MCP SSE (untuk Claude Code langsung — tidak diubah)
   } else if (req.method === "GET" && url.pathname === "/sse") {
