@@ -1,6 +1,7 @@
 import { runPipeline } from "../../orchestrator.js";
 import { saveFile } from "../../../../files.js";
 import { sendTelegram } from "../../notifiers/telegram.js";
+import { sendTeams } from "../../notifiers/teams.js";
 
 function lastWord(text: string): string {
   return text.trim().split(/\s+/).pop() ?? text;
@@ -50,15 +51,12 @@ export async function handleJiraWebhook(body: string): Promise<{ status: string 
 
   const seed = lastWord(change.after);
 
-  await sendTelegram(
-    `🚀 Pipeline Dimulai\n\n` +
-    `Issue       : ${issueKey} — ${summary}\n` +
-    `Sebelum     : ${change.before}\n` +
-    `Sesudah     : ${change.after}\n` +
-    `Kata diambil: <b>${seed}</b>\n` +
-    `Timestamp   : ${jakartaTime()}\n\n` +
-    `⏳ Memproses 9 agent...`
-  );
+  const startMsg = `🚀 Pipeline Dimulai\n\nIssue       : ${issueKey} — ${summary}\nSebelum     : ${change.before}\nSesudah     : ${change.after}\nKata diambil: ${seed}\nTimestamp   : ${jakartaTime()}\n\n⏳ Memproses 9 agent...`;
+
+  await Promise.all([
+    sendTelegram(startMsg.replace(`Kata diambil: ${seed}`, `Kata diambil: <b>${seed}</b>`)),
+    sendTeams(startMsg),
+  ]);
 
   const results = await runPipeline(seed);
 
@@ -77,7 +75,10 @@ export async function handleJiraWebhook(body: string): Promise<{ status: string 
 
   const finalUrl = saveFile("run_pipeline", finalContent);
 
-  await sendTelegram(`✅ <b>Pipeline Selesai!</b>\n📋 <b>${issueKey}</b>\n🔗 ${finalUrl}`);
+  await Promise.all([
+    sendTelegram(`✅ <b>Pipeline Selesai!</b>\n📋 <b>${issueKey}</b>\n🔗 ${finalUrl}`),
+    sendTeams(`✅ Pipeline Selesai!\n📋 ${issueKey}\n🔗 ${finalUrl}`),
+  ]);
 
   return { status: "ok" };
 }
