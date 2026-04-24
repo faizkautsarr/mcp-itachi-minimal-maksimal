@@ -6,14 +6,24 @@ Pipeline agentic 9-agent dengan teknik last-word chaining. Setiap agent menghasi
 
 ---
 
+## Install
+
+### Via Smithery (recommended)
+```bash
+claude mcp add --transport http https://mcp-itachi-minimal-maksimal-production.up.railway.app/mcp
+```
+
+### Via SSE (Claude Code langsung)
+```bash
+claude mcp add mcp-itachi --transport sse https://mcp-itachi-minimal-maksimal-production.up.railway.app/sse
+```
+
+---
+
 ## Mode
 
 ### MCP (via Claude)
 Claude sebagai orchestrator — generate kata per agent, call tool, chain secara berurutan.
-
-```bash
-claude mcp add mcp-itachi --transport sse https://mcp-itachi-minimal-maksimal-production.up.railway.app/sse
-```
 
 Slash commands yang tersedia setelah install:
 - `/itachi_run_pipeline` — jalankan full pipeline
@@ -88,9 +98,11 @@ src/
 
 | Method | Path | Keterangan |
 |---|---|---|
-| GET | `/sse` | MCP SSE connection |
-| POST | `/message` | MCP message handler |
+| POST | `/mcp` | MCP Streamable HTTP (Smithery) |
+| GET | `/sse` | MCP SSE connection (Claude Code) |
+| POST | `/message` | MCP SSE message handler |
 | GET | `/files/:id` | Serve hasil pipeline (HTML) |
 | POST | `/itachi/api/run-pipeline` | Autonomous pipeline |
 | POST | `/webhooks/jira` | Jira webhook trigger |
 | GET | `/health` | Health check |
+| GET | `/.well-known/mcp/server-card.json` | Smithery server card |
