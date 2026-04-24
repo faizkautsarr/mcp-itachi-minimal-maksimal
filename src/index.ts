@@ -1,5 +1,6 @@
 import { createServer, IncomingMessage } from "http";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createMcpServer } from "./consumers/mcp/server.js";
 import { handlePipelineApi } from "./consumers/autonomous/handlers/api/pipeline.js";
 import { handleJiraWebhook } from "./consumers/autonomous/handlers/webhook/jira.js";
@@ -32,8 +33,15 @@ const httpServer = createServer(async (req, res) => {
     return;
   }
 
-  // MCP
-  if (req.method === "GET" && url.pathname === "/sse") {
+  // MCP Streamable HTTP (untuk Smithery)
+  if (url.pathname === "/mcp") {
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    const server = createMcpServer();
+    await server.connect(transport);
+    await transport.handleRequest(req, res, await readBody(req));
+
+  // MCP SSE (untuk Claude Code langsung — tidak diubah)
+  } else if (req.method === "GET" && url.pathname === "/sse") {
     const transport = new SSEServerTransport("/message", res);
     transports.set(transport.sessionId, transport);
     res.on("close", () => transports.delete(transport.sessionId));
