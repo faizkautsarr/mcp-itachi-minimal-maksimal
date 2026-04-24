@@ -86,6 +86,16 @@ const httpServer = createServer(async (req, res) => {
       res.end(JSON.stringify({ error: String(err) }));
     }
 
+  // Smithery server card
+  } else if (req.method === "GET" && url.pathname === "/.well-known/mcp/server-card.json") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({
+      name: "itachi",
+      description: "Pipeline agentic 9-agent dengan teknik last-word chaining dalam Bahasa Indonesia. PM → Architect → Designer → BE → FE → QA → DevOps.",
+      version: "1.0.0",
+      transport: ["sse"]
+    }));
+
   // Health
   } else if (req.method === "GET" && url.pathname === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
